@@ -53,15 +53,23 @@ CREATE INDEX outages_idx_mapID_time ON outages(mapID, timeAndServiceID);"""
         self.__copy_data()
         # And do reindex
         self.__reindex()
-        self.log.info("Database is hopefully repaired. Estimated output size is: {size}MB".format(
-            size = float(os.path.getsize(self.dest)) / 1024.0 / 1024.0
+        self.log.info("Database is hopefully repaired. Output size is: {size}MB, Reduced: {reduced}MB".format(
+            size = float(os.path.getsize(self.dest)) / 1024.0 / 1024.0,
+            reduced = (
+                    float(os.path.getsize(self.source)) - float(os.path.getsize(self.dest))
+            ) / 1024.0 / 1024.0
         ))
+        # And close databases
+        self.source_conn.close()
+        self.dest_conn.close()
 
     def __copy_data(self):
         self.log.info
-        self.log.info("Selecting all data from objs")
+        self.log.info("Selecting all data from objs from source database")
+        count = self.src_cur.execute("SELECT COUNT(*) FROM objs").fetchone()[0]
+        self.log.info("Starting database repair.")
         self.src_cur.execute('select * from objs')
-        for item in tqdm(self.src_cur):
+        for item in tqdm(self.src_cur, total=count):
             self.dest_cur.execute("insert into objs values (?, ?)", (item[0], item[1]))
         self.dest_conn.commit()
 
